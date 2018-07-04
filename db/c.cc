@@ -741,6 +741,7 @@ int rocksdb_create_column_families(rocksdb_t* db,
     int     success_count;
     Status  s;
     int     i;
+    rocksdb_column_family_handle_t** result = NULL;
     std::vector<std::string> v_family_names;
     std::vector<ColumnFamilyHandle*> v_family_handles;
     for (i = 0; i < column_family_size; i++) {
@@ -749,28 +750,29 @@ int rocksdb_create_column_families(rocksdb_t* db,
     s = db->rep->CreateColumnFamilies(ColumnFamilyOptions(column_family_options->rep), v_family_names, &v_family_handles);
     success_count = v_family_handles.size();
     if (s.ok()) {
-        *handles = (rocksdb_column_family_handle_t**)malloc(sizeof(rocksdb_column_family_handle_t*) * success_count);
+        result = (rocksdb_column_family_handle_t**)malloc(sizeof(rocksdb_column_family_handle_t*) * success_count);
         for (i=0; i< success_count; i++) {
-            *handles[i] = new rocksdb_column_family_handle_t;
-            (*handles[i])->rep = v_family_handles[i];
+            result[i] = new rocksdb_column_family_handle_t;
+            result[i]->rep = v_family_handles[i];
         }
         ret = 0;
     } else {
         SaveError(errptr, s);
         if (success_count > 0) {
-            *handles = (rocksdb_column_family_handle_t**)malloc(sizeof(rocksdb_column_family_handle_t*) * success_count);
+            result = (rocksdb_column_family_handle_t**)malloc(sizeof(rocksdb_column_family_handle_t*) * success_count);
             for (i = 0; i < success_count; i++) {
                 if (v_family_handles[i] != nullptr) {
-                    *handles[i] = new rocksdb_column_family_handle_t;
-                    (*handles[i])->rep = v_family_handles[i];
+                    result[i] = new rocksdb_column_family_handle_t;
+                    result[i]->rep = v_family_handles[i];
                 } else {
-                    (*handles[i])->rep = NULL;
+                    result[i] = NULL;
                 }
             }
         }
         ret = 1;
     }
     *handle_size = success_count;
+    *handles = result;
     return ret;
 }
 
