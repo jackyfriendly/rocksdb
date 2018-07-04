@@ -445,18 +445,18 @@ struct rocksdb_universal_compaction_options_t {
 };
 
 static bool SaveError(char** errptr, const Status& s) {
-  assert(errptr != nullptr);
-  if (s.ok()) {
-    return false;
-  } else if (*errptr == nullptr) {
-    *errptr = strdup(s.ToString().c_str());
-  } else {
-    // TODO(sanjay): Merge with existing error?
-    // This is a bug if *errptr is not created by malloc()
-    free(*errptr);
-    *errptr = strdup(s.ToString().c_str());
-  }
-  return true;
+    assert(errptr != nullptr);
+    if (s.ok()) {
+        return false;
+    } else if (*errptr == nullptr) {
+        *errptr = strdup(s.ToString().c_str());
+    } else {
+        // TODO(sanjay): Merge with existing error?
+        // This is a bug if *errptr is not created by malloc()
+        free(*errptr);
+        *errptr = strdup(s.ToString().c_str());
+    }
+    return true;
 }
 
 static char* CopyString(const std::string& str) {
@@ -727,6 +727,69 @@ rocksdb_column_family_handle_t* rocksdb_create_column_family(
       db->rep->CreateColumnFamily(ColumnFamilyOptions(column_family_options->rep),
         std::string(column_family_name), &(handle->rep)));
   return handle;
+}
+
+int rocksdb_create_column_families(rocksdb_t* db,
+        const rocksdb_options_t* column_family_options,
+        const char** column_family_names,
+        const int column_family_size,
+        rocksdb_column_family_handle_t*** handles,
+        int* handle_size,
+        char** errptr)
+{
+    int     ret;
+    int     success_count;
+    Status  s;
+    int     i;
+    std::vector<std::string> v_family_names;
+    std::vector<ColumnFamilyHandle*> v_family_handles;
+    for (i = 0; i < column_family_size; i++) {
+        v_family_names.push_back(std::string(column_family_names[i]));
+    }
+    s = db->rep->CreateColumnFamilies(ColumnFamilyOptions(column_family_options->rep), v_family_names, &v_family_handles);
+    success_count = v_family_handles.size();
+    if (s.ok()) {
+        *handles = (rocksdb_column_family_handle_t**)malloc(sizeof(rocksdb_column_family_handle_t*) * success_count);
+        for (i=0; i< success_count; i++) {
+            *handles[i] = new rocksdb_column_family_handle_t;
+            (*handles[i])->rep = v_family_handles[i];
+        }
+        ret = 0;
+    } else {
+        SaveError(errptr, s);
+        if (success_count > 0) {
+            *handles = (rocksdb_column_family_handle_t**)malloc(sizeof(rocksdb_column_family_handle_t*) * success_count);
+            for (i = 0; i < success_count; i++) {
+                if (v_family_handles[i] != nullptr) {
+                    *handles[i] = new rocksdb_column_family_handle_t;
+                    (*handles[i])->rep = v_family_handles[i];
+                } else {
+                    (*handles[i])->rep = NULL;
+                }
+            }
+        }
+        ret = 1;
+    }
+    *handle_size = success_count;
+    return ret;
+}
+
+int rocksdb_drop_column_families(rocksdb_t* db,
+        const rocksdb_column_family_handle_t** column_family_handles,
+        const int size, char** errptr)
+{
+    int i;
+    Status s;
+    std::vector<ColumnFamilyHandle*> v_family_handles;
+    for (i = 0; i < size; i++) {
+        v_family_handles.push_back(column_family_handles[i]->rep);
+    }
+    s = db->rep->DropColumnFamilies(v_family_handles);
+    if (!s.ok()) {
+        SaveError(errptr, db->rep->DropColumnFamilies(v_family_handles));
+        return 1;        
+    }
+    return 0;
 }
 
 void rocksdb_drop_column_family(
@@ -3016,6 +3079,11 @@ void rocksdb_sstfilewriter_merge(rocksdb_sstfilewriter_t* writer,
                                  const char* val, size_t vallen,
                                  char** errptr) {
   SaveError(errptr, writer->rep->Merge(Slice(key, keylen), Slice(val, vallen)));
+}
+
+void rocksdb_sstfilewriter_file_size(rocksdb_sstfilewriter_t* writer,
+                                  uint64_t* file_size) {
+  *file_size = writer->rep->FileSize();
 }
 
 void rocksdb_sstfilewriter_delete(rocksdb_sstfilewriter_t* writer,

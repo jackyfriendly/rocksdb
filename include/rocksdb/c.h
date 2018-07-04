@@ -220,6 +220,18 @@ rocksdb_create_column_family(rocksdb_t* db,
                              const rocksdb_options_t* column_family_options,
                              const char* column_family_name, char** errptr);
 
+extern ROCKSDB_LIBRARY_API int rocksdb_create_column_families(rocksdb_t* db,
+        const rocksdb_options_t* column_family_options,
+        const char** column_family_names,
+        const int column_family_size,
+        rocksdb_column_family_handle_t ***handles,
+        int* handle_size,
+        char** errptr);
+
+extern ROCKSDB_LIBRARY_API int rocksdb_drop_column_families(rocksdb_t* db,
+        const rocksdb_column_family_handle_t** column_family_handles,
+        const int size, char** errptr);
+
 extern ROCKSDB_LIBRARY_API void rocksdb_drop_column_family(
     rocksdb_t* db, rocksdb_column_family_handle_t* handle, char** errptr);
 
@@ -1189,6 +1201,8 @@ extern ROCKSDB_LIBRARY_API void rocksdb_sstfilewriter_delete(
     char** errptr);
 extern ROCKSDB_LIBRARY_API void rocksdb_sstfilewriter_finish(
     rocksdb_sstfilewriter_t* writer, char** errptr);
+extern ROCKSDB_LIBRARY_API void rocksdb_sstfilewriter_file_size(
+        rocksdb_sstfilewriter_t* writer, uint64_t* file_size);
 extern ROCKSDB_LIBRARY_API void rocksdb_sstfilewriter_destroy(
     rocksdb_sstfilewriter_t* writer);
 
@@ -1214,7 +1228,6 @@ rocksdb_ingestexternalfileoptions_set_ingest_behind(
     unsigned char ingest_behind);
 extern ROCKSDB_LIBRARY_API void rocksdb_ingestexternalfileoptions_destroy(
     rocksdb_ingestexternalfileoptions_t* opt);
-
 extern ROCKSDB_LIBRARY_API void rocksdb_ingest_external_file(
     rocksdb_t* db, const char* const* file_list, const size_t list_len,
     const rocksdb_ingestexternalfileoptions_t* opt, char** errptr);
@@ -1222,7 +1235,6 @@ extern ROCKSDB_LIBRARY_API void rocksdb_ingest_external_file_cf(
     rocksdb_t* db, rocksdb_column_family_handle_t* handle,
     const char* const* file_list, const size_t list_len,
     const rocksdb_ingestexternalfileoptions_t* opt, char** errptr);
-
 /* SliceTransform */
 
 extern ROCKSDB_LIBRARY_API rocksdb_slicetransform_t*
