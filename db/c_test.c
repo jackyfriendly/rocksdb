@@ -383,6 +383,7 @@ int main(int argc, char** argv) {
   rocksdb_dbpath_t *dbpath;
   rocksdb_env_t* env;
   rocksdb_options_t* options;
+  rocksdb_options_t* options_upper;
   rocksdb_compactoptions_t* coptions;
   rocksdb_block_based_table_options_t* table_options;
   rocksdb_readoptions_t* roptions;
@@ -427,6 +428,9 @@ int main(int argc, char** argv) {
   dbpath = rocksdb_dbpath_create(dbpathname, 1024 * 1024);
   env = rocksdb_create_default_env();
   cache = rocksdb_cache_create_lru(100000);
+
+  options_upper = rocksdb_options_create();
+  rocksdb_options_set_create_if_missing(options_upper, 1);
 
   options = rocksdb_options_create();
   rocksdb_options_set_comparator(options, cmp);
@@ -1316,17 +1320,20 @@ int main(int argc, char** argv) {
   {
     // Create new empty database
     rocksdb_close(db);
-    rocksdb_destroy_db(options, dbname, &err);
+    rocksdb_destroy_db(options_upper, dbname, &err);
     CheckNoError(err);
 
-    rocksdb_options_set_prefix_extractor(options, NULL);
-    db = rocksdb_open(options, dbname, &err);
+    //rocksdb_options_set_prefix_extractor(options, NULL);
+    db = rocksdb_open(options_upper, dbname, &err);
     CheckNoError(err);
 
     rocksdb_put(db, woptions, "a",    1, "0",    1, &err); CheckNoError(err);
     rocksdb_put(db, woptions, "foo",  3, "bar",  3, &err); CheckNoError(err);
     rocksdb_put(db, woptions, "foo1", 4, "bar1", 4, &err); CheckNoError(err);
     rocksdb_put(db, woptions, "g1",   2, "0",    1, &err); CheckNoError(err);
+    rocksdb_put(db, woptions, "111#sdfs",   8, "sdfs",    4, &err); CheckNoError(err);
+    rocksdb_put(db, woptions, "111#fsfs",   8, "fsfs",    4, &err); CheckNoError(err);
+    rocksdb_put(db, woptions, "113#sdfs",   8, "sdfs",    4, &err); CheckNoError(err);
 
     // testing basic case with no iterate_upper_bound and no prefix_extractor
     {
@@ -1347,22 +1354,21 @@ int main(int argc, char** argv) {
 
        rocksdb_iter_destroy(iter);
     }
-
     // testing iterate_upper_bound and forward iterator
     // to make sure it stops at bound
     {
        // iterate_upper_bound points beyond the last expected entry
-       rocksdb_readoptions_set_iterate_upper_bound(roptions, "foo2", 4);
+       rocksdb_readoptions_set_iterate_upper_bound(roptions, "111$", 4);
 
        rocksdb_iterator_t* iter = rocksdb_create_iterator(db, roptions);
 
-       rocksdb_iter_seek(iter, "foo", 3);
+       rocksdb_iter_seek(iter, "111#", 4);
        CheckCondition(rocksdb_iter_valid(iter));
-       CheckIter(iter, "foo", "bar");
+       CheckIter(iter, "111#fsfs", "fsfs");
 
        rocksdb_iter_next(iter);
        CheckCondition(rocksdb_iter_valid(iter));
-       CheckIter(iter, "foo1", "bar1");
+       CheckIter(iter, "111#sdfs", "sdfs");
 
        rocksdb_iter_next(iter);
        // should stop here...
@@ -1372,6 +1378,8 @@ int main(int argc, char** argv) {
     }
   }
 
+    rocksdb_close(db);
+  /*
   StartPhase("transactions");
   {
     rocksdb_close(db);
@@ -1648,7 +1656,7 @@ int main(int argc, char** argv) {
   rocksdb_comparator_destroy(cmp);
   rocksdb_dbpath_destroy(dbpath);
   rocksdb_env_destroy(env);
-
+    */
   fprintf(stderr, "PASS\n");
   return 0;
 }
